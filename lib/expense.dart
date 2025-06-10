@@ -30,18 +30,22 @@ class Expense extends HiveObject {
   @HiveField(2)
   final TransactionType transactionType;
 
-  @HiveField(3) // New field for location/description
+  @HiveField(3)
   final String? description;
+
+  @HiveField(4) // New field for bank name
+  final String? bankName;
 
   Expense({
     required this.amount,
     required this.timestamp,
     this.transactionType = TransactionType.general,
     this.description,
+    this.bankName,
   });
 
   @override
   String toString() {
-    return 'Expense(amount: $amount, timestamp: $timestamp, type: $transactionType, desc: $description)';
+    return 'Expense(amount: $amount, timestamp: $timestamp, type: $transactionType, desc: $description, bank: $bankName)';
   }
 }

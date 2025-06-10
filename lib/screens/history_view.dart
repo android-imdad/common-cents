@@ -44,28 +44,27 @@ class HistoryView extends StatelessWidget {
         final expense = sortedExpenses[index];
 
         IconData leadingIcon;
-        String subtitleText;
+        String primarySubtitle;
         String? secondarySubtitle;
+
+        String bankText = expense.bankName != null ? ' • ${expense.bankName}' : '';
+        String dateText = DateFormat.yMMMd().add_jm().format(expense.timestamp);
 
         switch(expense.transactionType) {
           case TransactionType.atmWithdrawal:
             leadingIcon = Icons.local_atm_outlined;
-            subtitleText = expense.description ?? "Cash Withdrawal";
+            primarySubtitle = expense.description ?? "Cash Withdrawal";
             break;
           case TransactionType.bankTransfer:
             leadingIcon = Icons.swap_horiz_outlined;
-            subtitleText = expense.description ?? "Bank Transfer";
+            primarySubtitle = expense.description ?? "Bank Transfer";
             break;
           default:
             leadingIcon = Icons.monetization_on_outlined;
-            subtitleText = expense.description ?? "General Expense";
+            primarySubtitle = expense.description ?? "General Expense";
         }
 
-        if (expense.description != null) {
-          secondarySubtitle = DateFormat.yMMMd().add_jm().format(expense.timestamp);
-        } else {
-          subtitleText = DateFormat.yMMMd().add_jm().format(expense.timestamp);
-        }
+        secondarySubtitle = '$dateText$bankText';
 
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
@@ -79,12 +78,12 @@ class HistoryView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  subtitleText,
+                  primarySubtitle,
                   style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (secondarySubtitle != null)
+                if (secondarySubtitle.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 2.0),
                     child: Text(
@@ -94,7 +93,7 @@ class HistoryView extends StatelessWidget {
                   ),
               ],
             ),
-            isThreeLine: secondarySubtitle != null,
+            isThreeLine: true,
             trailing: IconButton(
               icon: Icon(Icons.delete_outline, color: Colors.red[300]),
               onPressed: () => _deleteExpenseItem(context, expense),

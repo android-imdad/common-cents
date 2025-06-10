@@ -15,7 +15,6 @@ class SmsService {
   final RegExp generalAmountRegex = RegExp(r'(?:Rs|INR)\.?\s*([\d,]+\.?\d*)', caseSensitive: false);
 
   final RegExp sampathAuthPmtRegex = RegExp(r'Auth Pmt\s+([A-Z]{3})\s+([\d,]+\.?\d*)(?:\s+at\s+(.*?))?(?:\s*;|\s+on)', caseSensitive: false);
-  // Corrected and simplified regex for Sampath debit messages
   final RegExp sampathDebitRegex = RegExp(r'([a-z]{3})\s+([\d,]+\.?\d*)\s+debited from ac \*\*[\d*]+ (via (?:pos at|atm at)|for) (.*?)(?:\s*-|\n|$)', caseSensitive: false);
 
   final RegExp hsbcAuthRegex = RegExp(r'txn auth amt\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
@@ -50,11 +49,13 @@ class SmsService {
       double? originalAmount;
       String? transactionCurrencyCode;
       String? description;
+      String? bankName;
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
 
       if (messageAddress == 'HSBC') {
+        bankName = 'HSBC';
         match = hsbcAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);
@@ -72,6 +73,7 @@ class SmsService {
         }
       }
       else if (message.address == '8822') {
+        bankName = 'Sampath Bank';
         match = sampathAuthPmtRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);
@@ -83,16 +85,12 @@ class SmsService {
           if (match != null) {
             transactionCurrencyCode = match.group(1);
             originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
-            String method = match.group(3) ?? ''; // "via pos at", "via atm at", or "for"
             description = match.group(4)?.trim();
+            String method = match.group(3) ?? '';
 
-            if (method.contains('atm')) {
-              type = TransactionType.atmWithdrawal;
-            } else if (method.contains('for')) {
-              type = TransactionType.bankTransfer;
-            } else { // Contains 'pos'
-              type = TransactionType.general;
-            }
+            if (method.contains('atm')) type = TransactionType.atmWithdrawal;
+            else if (method.contains('for')) type = TransactionType.bankTransfer;
+            else type = TransactionType.general;
           }
         }
       }
@@ -121,7 +119,7 @@ class SmsService {
             exp.timestamp.day == timestamp.day);
 
         if (!alreadyExists) {
-          await expenseService.addExpense(Expense(amount: finalAmount, timestamp: timestamp, transactionType: type, description: description));
+          await expenseService.addExpense(Expense(amount: finalAmount, timestamp: timestamp, transactionType: type, description: description, bankName: bankName));
           newExpensesCount++;
         }
       }
