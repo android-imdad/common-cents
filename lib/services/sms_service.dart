@@ -14,10 +14,9 @@ class SmsService {
   final List<String> debitKeywords = ['debited', 'spent', 'purchase of', 'payment of', 'sent'];
   final RegExp generalAmountRegex = RegExp(r'(?:Rs|INR)\.?\s*([\d,]+\.?\d*)', caseSensitive: false);
 
-  // Regex with optional "at" group to capture description
   final RegExp sampathAuthPmtRegex = RegExp(r'Auth Pmt\s+([A-Z]{3})\s+([\d,]+\.?\d*)(?:\s+at\s+(.*?))?(?:\s*;|\s+on)', caseSensitive: false);
-  // MODIFIED Regex: Removed the starting anchor (^) to make it more flexible
-  final RegExp sampathDebitRegex = RegExp(r'([A-Z]{3})\s+([\d,]+\.?\d*)\s+debited from ac', caseSensitive: false);
+  // Corrected and simplified regex for Sampath debit messages
+  final RegExp sampathDebitRegex = RegExp(r'([a-z]{3})\s+([\d,]+\.?\d*)\s+debited from ac \*\*[\d*]+ (via (?:pos at|atm at)|for) (.*?)(?:\s*-|\n|$)', caseSensitive: false);
 
   final RegExp hsbcAuthRegex = RegExp(r'txn auth amt\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
   final RegExp hsbcCeftsRegex = RegExp(r'cefts trf of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
@@ -84,19 +83,15 @@ class SmsService {
           if (match != null) {
             transactionCurrencyCode = match.group(1);
             originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            String method = match.group(3) ?? ''; // "via pos at", "via atm at", or "for"
+            description = match.group(4)?.trim();
 
-            if (messageBody.contains('via atm')) {
+            if (method.contains('atm')) {
               type = TransactionType.atmWithdrawal;
-              final descMatch = RegExp(r'via atm at (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
-              description = descMatch?.group(1)?.trim();
-            } else if (messageBody.contains('via')) {
-              type = TransactionType.general; // POS transaction
-              final descMatch = RegExp(r'via .*? at (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
-              description = descMatch?.group(1)?.trim();
-            } else if (messageBody.contains('for')) {
+            } else if (method.contains('for')) {
               type = TransactionType.bankTransfer;
-              final descMatch = RegExp(r' for (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
-              description = descMatch?.group(1)?.trim();
+            } else { // Contains 'pos'
+              type = TransactionType.general;
             }
           }
         }
