@@ -1,3 +1,4 @@
+import 'package:animated_digit/animated_digit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -5,11 +6,12 @@ import 'package:intl/intl.dart';
 class SpendingCard extends StatelessWidget {
   final String title;
   final double amount;
+  final String currencySymbol;
 
   const SpendingCard({
     super.key,
     required this.title,
-    required this.amount,
+    required this.amount, required this.currencySymbol,
   });
 
   @override
@@ -31,11 +33,13 @@ class SpendingCard extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 12),
-            Text(
-              // Format amount to 2 decimal places, using locale for currency formatting
-              NumberFormat.currency(locale: 'en_US', symbol: '\$').format(amount),
-              style: theme.textTheme.headlineMedium,
-              textAlign: TextAlign.center,
+            AnimatedDigitWidget(
+              value: amount,
+              textStyle: theme.textTheme.headlineMedium,
+              duration: const Duration(milliseconds: 500),
+              fractionDigits: 2,
+              enableSeparator: true,
+              separateSymbol: ',',
             ),
           ],
         ),

@@ -1,18 +1,20 @@
+import 'package:animated_digit/animated_digit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../expense.dart';
-import '../expense_service.dart';
+import '../services/expense_service.dart';
 
 class CurrentSpendingView extends StatelessWidget {
   final List<Expense> expenses;
   final ExpenseService expenseService;
+  final String currencySymbol;
 
   const CurrentSpendingView({
     super.key,
     required this.expenses,
-    required this.expenseService,
+    required this.expenseService, required this.currencySymbol,
   });
 
   // Helper widget for building each spending item (label above amount)
@@ -25,7 +27,8 @@ class CurrentSpendingView extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
         // Align children to the start (left)
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             label,
@@ -33,10 +36,13 @@ class CurrentSpendingView extends StatelessWidget {
             style: theme.textTheme.titleMedium?.copyWith(color: Colors.teal), // e.g., 16pt normal greyish
           ),
           const SizedBox(height: 4), // Small space between label and amount
-          Text(
-            currencyFormat.format(amount),
-            // Use a larger text style for the amount
-            style: theme.textTheme.headlineMedium?.copyWith(fontSize: 55.0), // Increase font size to 40
+          AnimatedDigitWidget(
+            value: amount,
+            textStyle: theme.textTheme.headlineMedium?.copyWith(fontSize: 40), // e.g., 32pt bold white
+            duration: const Duration(milliseconds: 500), // Animation duration
+            fractionDigits: 2,
+            enableSeparator: true, // Adds commas for thousands
+            separateSymbol: ',',
           ),
         ],
       ),
@@ -50,9 +56,9 @@ class CurrentSpendingView extends StatelessWidget {
       // Apply padding to the scrollable content area
       padding: const EdgeInsets.all(20.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         // Ensure the column itself aligns items to the start (left)
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: <Widget>[
           _buildSpendingItem(
             context,

@@ -1,9 +1,10 @@
+import 'package:common_cents/services/settings_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'app.dart';
-import 'expense_service.dart';
+import 'services/expense_service.dart';
 
 
 Future<void> main() async {
@@ -12,6 +13,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   debugPrint("WidgetsFlutterBinding initialized.");
   // Initialize Hive before running the app
+  await SettingsService.init(); // Ensure services are initialized before running the app
   await ExpenseService.initHive(); // Wait for initialization
   debugPrint("Hive initialization awaited in main.");
   runApp(const BudgetApp());

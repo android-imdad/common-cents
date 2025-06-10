@@ -5,7 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'expense.dart';
+import '../expense.dart';
 
 class ExpenseService {
   static const String _boxName = 'expensesBox';
@@ -197,62 +197,38 @@ class ExpenseService {
 
 
   // --- Average Calculation Logic ---
-  // --- Rolling Average Calculation Logic --- NEW ---
   Map<String, double> getAverageSpending(List<Expense> expenses) {
     if (expenses.isEmpty) {
       return {'daily': 0.0, 'weekly': 0.0, 'monthly': 0.0, 'yearly': 0.0};
     }
 
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day); // Use midnight for comparisons
 
-    // --- Average Daily (Last 30 days) ---
-    const dailyWindow = 30;
-    final thirtyDaysAgo = today.subtract(const Duration(days: dailyWindow));
-    final expensesLast30Days = expenses.where((e) {
-      final expenseDate = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      // Include today, exclude day 30 days ago
-      return !expenseDate.isBefore(thirtyDaysAgo) && expenseDate.isBefore(today.add(const Duration(days:1)));
-    }).toList();
-    final totalSpendLast30Days = expensesLast30Days.fold(0.0, (sum, item) => sum + item.amount);
-    // Divide by the window size (30 days) regardless of how many days had expenses
-    final avgDaily = totalSpendLast30Days / dailyWindow;
+    // Helper function to calculate average over a period
+    double calculateAverage(DateTime startDate, double divisor) {
+      final relevantExpenses = expenses.where((e) => !e.timestamp.isBefore(startDate) && !e.timestamp.isAfter(now));
+      if (relevantExpenses.isEmpty) return 0.0;
+      final totalSpend = relevantExpenses.fold(0.0, (sum, item) => sum + item.amount);
+      return totalSpend / divisor;
+    }
 
+    // Average Daily (last 2 months)
+    final twoMonthsAgo = DateTime(now.year, now.month - 2, now.day);
+    final daysInLastTwoMonths = now.difference(twoMonthsAgo).inDays;
+    final avgDaily = calculateAverage(twoMonthsAgo, daysInLastTwoMonths > 0 ? daysInLastTwoMonths.toDouble() : 1.0);
 
-    // --- Average Weekly (Last 4 Weeks / 28 days) ---
-    const weeklyWindowDays = 28;
-    const weeklyWindowWeeks = 4;
-    final twentyEightDaysAgo = today.subtract(const Duration(days: weeklyWindowDays));
-    final expensesLast4Weeks = expenses.where((e) {
-      final expenseDate = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      // Include today, exclude day 28 days ago
-      return !expenseDate.isBefore(twentyEightDaysAgo) && expenseDate.isBefore(today.add(const Duration(days:1)));
-    }).toList();
-    final totalSpendLast4Weeks = expensesLast4Weeks.fold(0.0, (sum, item) => sum + item.amount);
-    // Divide by the number of weeks in the window
-    final avgWeekly = (weeklyWindowWeeks > 0) ? totalSpendLast4Weeks / weeklyWindowWeeks : 0.0;
+    // Average Weekly (last 6 months)
+    final sixMonthsAgo = DateTime(now.year, now.month - 6, now.day);
+    final weeksInLastSixMonths = now.difference(sixMonthsAgo).inDays / 7;
+    final avgWeekly = calculateAverage(sixMonthsAgo, weeksInLastSixMonths > 0 ? weeksInLastSixMonths : 1.0);
 
+    // Average Monthly (last year)
+    final lastYear = DateTime(now.year - 1, now.month, now.day);
+    final avgMonthly = calculateAverage(lastYear, 12);
 
-    // --- Average Monthly (Last 3 Months) ---
-    const monthlyWindowMonths = 3;
-    // Calculate the first day of the month 3 months ago
-    final firstDayOfRelevantMonth = DateTime(now.year, now.month - monthlyWindowMonths + 1, 1);
-    final expensesLast3Months = expenses.where((e) {
-      final expenseDate = DateTime(e.timestamp.year, e.timestamp.month, e.timestamp.day);
-      // Check if the expense date is on or after the start of the 3-month window
-      // and before the start of the current day + 1 (i.e. includes today)
-      return !expenseDate.isBefore(firstDayOfRelevantMonth) && expenseDate.isBefore(today.add(const Duration(days:1)));
-    }).toList();
-    final totalSpendLast3Months = expensesLast3Months.fold(0.0, (sum, item) => sum + item.amount);
-    // Divide by the number of months in the window
-    final avgMonthly = (monthlyWindowMonths > 0) ? totalSpendLast3Months / monthlyWindowMonths : 0.0;
-
-
-    // --- Average Yearly (Extrapolated from Monthly) ---
-    // Based on the average of the last 3 months
-    final avgYearly = avgMonthly * 12;
-
-    debugPrint("Rolling Avg Calc: Daily (Last 30d)= $avgDaily, Weekly (Last 4w)= $avgWeekly, Monthly (Last 3m)= $avgMonthly, Yearly (Est)= $avgYearly");
+    // Average Yearly (last 3 years)
+    final threeYearsAgo = DateTime(now.year - 3, now.month, now.day);
+    final avgYearly = calculateAverage(threeYearsAgo, 3);
 
     return {
       'daily': avgDaily,
@@ -260,6 +236,26 @@ class ExpenseService {
       'monthly': avgMonthly,
       'yearly': avgYearly,
     };
+  }
+
+  // --- Clear All Expenses ---
+  Future<void> clearAllExpenses() async {
+    debugPrint("Attempting to clear all expenses...");
+    try {
+      final box = _expenseBox;
+      await box.clear();
+      debugPrint("All expenses cleared successfully. Box size: ${box.length}");
+    } catch (e, stacktrace) {
+      debugPrint("############# HIVE CLEAR ERROR #############");
+      debugPrint("Error clearing expenses: $e");
+      debugPrint("Stacktrace: $stacktrace");
+      debugPrint("############# END HIVE ERROR #############");
+      rethrow;
+    }
+  }
+
+  List<Expense> getAllExpenses() {
+    return _expenseBox.values.toList();
   }
 
   // --- Close Box ---

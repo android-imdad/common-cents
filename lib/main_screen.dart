@@ -1,44 +1,42 @@
 import 'package:common_cents/screens/average_spending_view.dart';
 import 'package:common_cents/screens/current_spending_view.dart';
 import 'package:common_cents/screens/history_view.dart';
+import 'package:common_cents/screens/settings_view.dart';
+import 'package:common_cents/services/settings_service.dart';
 import 'package:common_cents/widgets/add_expense_dialog_content.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import 'expense.dart';
-import 'expense_service.dart';
+import 'services/expense_service.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
-
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  final ExpenseService _expenseService = ExpenseService(); // Instance of the service
+  final ExpenseService _expenseService = ExpenseService();
   late final ValueNotifier<List<Expense>> _expensesNotifier;
 
   @override
   void initState() {
     super.initState();
-    // Get the notifier from the service
     _expensesNotifier = _expenseService.expensesNotifier;
-    debugPrint("MainScreen initState: Got expenses notifier.");
+    _expensesNotifier.addListener(_handleNotifierChange);
+  }
+
+  void _handleNotifierChange(){
   }
 
   @override
   void dispose() {
-    // Although the box listener within the notifier handles updates,
-    // explicitly remove listeners or dispose notifier if necessary in complex scenarios.
-    // Hive box closing is handled globally usually on app exit, not here.
-    // _expenseService.close(); // Avoid closing the box here if used elsewhere
-    debugPrint("MainScreen dispose");
+    _expensesNotifier.removeListener(_handleNotifierChange);
     super.dispose();
   }
-
 
   void _onItemTapped(int index) {
     setState(() {
@@ -46,34 +44,32 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  // --- ADD EXPENSE DIALOG ---
   void _showAddExpenseDialog() {
-    // Create a GlobalKey for the content widget to access its state if needed,
-    // but we'll primarily use the callback.
     final GlobalKey<AddExpenseDialogContentState> dialogContentKey = GlobalKey();
 
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (BuildContext context) {
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) {
         return AlertDialog(
           title: const Text('Add New Expense'),
-          // Use the new stateful widget for the content
           content: AddExpenseDialogContent(
-            key: dialogContentKey, // Assign the key
-            // Define the callback function
+            key: dialogContentKey,
             onAdd: (amount, dateTime) {
               final newExpense = Expense(amount: amount, timestamp: dateTime);
               _expenseService.addExpense(newExpense).then((_) {
-                Navigator.of(context).pop(); // Close dialog on success
+                Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Expense of \$${amount.toStringAsFixed(2)} added for ${DateFormat.yMd().format(dateTime)}.'), // Updated message
+                    content: Text('Expense of ${amount.toStringAsFixed(2)} ${SettingsService.currentCurrencySymbol.value} added for ${DateFormat.yMd().format(dateTime)}.'),
                     backgroundColor: Colors.green[700],
                     duration: const Duration(seconds: 2),
                   ),
                 );
               }).catchError((error) {
-                // Don't close dialog on error, let user retry or cancel
-                // Navigator.of(context).pop(); // Keep dialog open
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Error adding expense: $error'),
@@ -82,7 +78,7 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 );
               });
-            },
+            }, currencySymbol: SettingsService.currentCurrencySymbol.value,
           ),
           actions: <Widget>[
             TextButton(
@@ -95,88 +91,107 @@ class _MainScreenState extends State<MainScreen> {
             TextButton(
               child: const Text('Add'),
               onPressed: () {
-                // Trigger the validation and callback via the content widget's state
                 dialogContentKey.currentState?.tryAddExpense();
               },
             ),
           ],
         );
       },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        // Use a scale transition for a "zoom" effect
+        return ScaleTransition(
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutBack, // A nice "bouncy" curve
+            reverseCurve: Curves.easeOutBack,
+          ),
+          child: child,
+        );
+      },
     );
   }
 
-  // --- Build Method ---
+  // Helper widget for building navigation items
+  Widget _buildNavItem({required IconData icon, required int index, required String label}) {
+    final isSelected = _selectedIndex == index;
+    final color = isSelected ? Colors.tealAccent : Colors.grey[600];
+    return InkWell(
+      onTap: () => _onItemTapped(index),
+      borderRadius: BorderRadius.circular(50), // For a circular ripple effect
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(color: color, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- MODIFIED Build Method ---
   @override
   Widget build(BuildContext context) {
-    // List of Titles for the AppBar
     final List<String> titles = <String>[
-      'Current Spending',
-      'Average Stats',
-      'Spending History',
+      'Current Spending (${SettingsService.currentCurrencySymbol.value})',
+      'Average Stats (${SettingsService.currentCurrencySymbol.value})',
+      'Spending History (${SettingsService.currentCurrencySymbol.value})',
+      'Settings'
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_selectedIndex]),
+        centerTitle: true,
       ),
-      // Use ValueListenableBuilder to react to changes in expenses
-      body: ValueListenableBuilder<List<Expense>>(
-        valueListenable: _expensesNotifier,
-        builder: (context, expenses, child) {
-          debugPrint("ValueListenableBuilder rebuilding with ${expenses.length} expenses.");
-          // Pass the current list of expenses and the service to the views
-          final List<Widget> widgetOptions = <Widget>[
-            CurrentSpendingView(expenses: expenses, expenseService: _expenseService),
-            AverageStatsView(expenses: expenses, expenseService: _expenseService),
-            HistoryView(expenses: expenses, expenseService: _expenseService),
-          ];
-
-          // AnimatedSwitcher for smooth transitions between views
-          return AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            transitionBuilder: (Widget child, Animation<double> animation) {
-              // Fade and slight slide transition
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.0, 0.05), // Slide from bottom slightly
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              );
-            },
-            child: Container( // Use Container instead of Center
-              key: ValueKey<int>(_selectedIndex), // Keep the key
-              alignment: Alignment.topLeft, // Explicitly align top-left (optional)
-              child: widgetOptions.elementAt(_selectedIndex),
-            ),
-          );
-        },
+      body: ValueListenableBuilder<String>(
+          valueListenable: SettingsService.currentCurrencySymbol,
+          builder: (context, currencySymbol, _) {
+            return ValueListenableBuilder<List<Expense>>(
+              valueListenable: _expensesNotifier,
+              builder: (context, expenses, child) {
+                final List<Widget> widgetOptions = [
+                  CurrentSpendingView(expenses: expenses, expenseService: _expenseService, currencySymbol: currencySymbol),
+                  AverageStatsView(expenses: expenses, expenseService: _expenseService, currencySymbol: currencySymbol),
+                  HistoryView(expenses: expenses, expenseService: _expenseService, currencySymbol: currencySymbol),
+                  SettingsView(expenseService: _expenseService),
+                ];
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return FadeTransition(opacity: animation, child: SlideTransition(position: Tween<Offset>(begin: const Offset(0.0, 0.05), end: Offset.zero).animate(animation), child: child));
+                  },
+                  child: Center(key: ValueKey<int>(_selectedIndex), child: widgetOptions.elementAt(_selectedIndex)),
+                );
+              },
+            );
+          }
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.data_usage),
-            label: 'Current',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.query_stats),
-            label: 'Averages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'History',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
-      ),
+      // --- INTEGRATED FAB AND BOTTOM APP BAR ---
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddExpenseDialog,
         tooltip: 'Add Expense',
+        shape: const CircleBorder(),
         child: const Icon(Icons.add),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        color: Colors.grey[900],
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: <Widget>[
+            _buildNavItem(icon: Icons.data_usage, index: 0, label: 'Current'),
+            _buildNavItem(icon: Icons.query_stats, index: 1, label: 'Averages'),
+            const SizedBox(width: 48), // The space for the notch
+            _buildNavItem(icon: Icons.history, index: 2, label: 'History'),
+            _buildNavItem(icon: Icons.settings_outlined, index: 3, label: 'Settings'),
+          ],
+        ),
       ),
     );
   }

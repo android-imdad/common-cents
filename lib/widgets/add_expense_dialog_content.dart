@@ -4,8 +4,8 @@ import 'package:intl/intl.dart';
 
 class AddExpenseDialogContent extends StatefulWidget {
   final Function(double amount, DateTime dateTime) onAdd; // Callback
-
-  const AddExpenseDialogContent({super.key, required this.onAdd});
+  final String currencySymbol;
+  const AddExpenseDialogContent({super.key, required this.onAdd, required this.currencySymbol});
 
   @override
   State<AddExpenseDialogContent> createState() => AddExpenseDialogContentState();
@@ -41,7 +41,7 @@ class AddExpenseDialogContentState extends State<AddExpenseDialogContent> {
             colorScheme: Theme.of(context).colorScheme.copyWith(
               primary: Colors.tealAccent, // Header background
               onPrimary: Colors.black, // Header text
-              onSurface: Colors.white, // Body text
+              onSurface: Colors.white70, // Body text
             ),
             dialogBackgroundColor: Colors.grey[850],
             textButtonTheme: TextButtonThemeData(
@@ -137,9 +137,9 @@ class AddExpenseDialogContentState extends State<AddExpenseDialogContent> {
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(color: Colors.white, fontSize: 18),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               hintText: 'Enter amount',
-              prefixText: '\$ ',
+              suffixText: widget.currencySymbol, // Use dynamic currency
             ),
             autofocus: true,
             validator: (value) {

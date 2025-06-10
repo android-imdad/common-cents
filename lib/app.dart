@@ -10,14 +10,15 @@ class BudgetApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    var offWhite = const Color(0xFFe8e8e8);
     // Using Lato font, apply globally
     final textTheme = GoogleFonts.latoTextTheme(ThemeData.dark().textTheme).copyWith(
-      bodyLarge: GoogleFonts.lato(fontSize: 18.0, color: Colors.white),
-      bodyMedium: GoogleFonts.lato(fontSize: 16.0, color: Colors.white70),
-      headlineMedium: GoogleFonts.lato(fontSize: 28.0, fontWeight: FontWeight.bold, color: Colors.white),
-      headlineSmall: GoogleFonts.lato(fontSize: 24.0, fontWeight: FontWeight.bold, color: Colors.white),
-      titleLarge: GoogleFonts.lato(fontSize: 22.0, fontWeight: FontWeight.bold, color: Colors.white),
-      labelLarge: GoogleFonts.lato(fontSize: 18.0, fontWeight: FontWeight.bold, color: Colors.white),
+      bodyLarge: GoogleFonts.lato(fontSize: 18.0, color: offWhite),
+      bodyMedium: GoogleFonts.lato(fontSize: 16.0, color: offWhite),
+      headlineMedium: GoogleFonts.lato(fontSize: 28.0, fontWeight: FontWeight.bold, color: offWhite),
+      headlineSmall: GoogleFonts.lato(fontSize: 24.0, fontWeight: FontWeight.bold, color: offWhite),
+      titleLarge: GoogleFonts.lato(fontSize: 22.0, fontWeight: FontWeight.bold, color: offWhite),
+      labelLarge: GoogleFonts.lato(fontSize: 18.0, fontWeight: FontWeight.bold, color: offWhite),
     );
 
     return MaterialApp(
@@ -68,11 +69,11 @@ class BudgetApp extends StatelessWidget {
           focusedErrorBorder: const UnderlineInputBorder(
             borderSide: BorderSide(color: Colors.redAccent, width: 2),
           ),
-        ),
-        dialogBackgroundColor: Colors.grey[900], // Theme for AlertDialog
-        dialogTheme: DialogTheme(
+        ), // Theme for AlertDialog
+        dialogTheme: DialogThemeData(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           titleTextStyle: textTheme.titleLarge,
+          backgroundColor: Colors.grey[900]
         ),
         textButtonTheme: TextButtonThemeData( // Theme for Dialog buttons
           style: TextButton.styleFrom(
