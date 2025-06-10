@@ -11,16 +11,17 @@ import 'expense_service.dart';
 class SmsService {
   final Telephony telephony = Telephony.instance;
 
-  // General keywords for most banks
   final List<String> debitKeywords = ['debited', 'spent', 'purchase of', 'payment of', 'sent'];
   final RegExp generalAmountRegex = RegExp(r'(?:Rs|INR)\.?\s*([\d,]+\.?\d*)', caseSensitive: false);
 
-  // Specific parsers
-  final RegExp sampathAuthPmtRegex = RegExp(r'Auth Pmt\s+([A-Z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
-  final RegExp sampathDebitRegex = RegExp(r'^([A-Z]{3})\s+([\d,]+\.?\d*)\s+debited from ac', caseSensitive: false);
-  final RegExp hsbcTxnAuthRegex = RegExp(r'txn auth amt\s*([a-z]{3})([\d,]+\.?\d*)', caseSensitive: false);
+  // Regex with optional "at" group to capture description
+  final RegExp sampathAuthPmtRegex = RegExp(r'Auth Pmt\s+([A-Z]{3})\s+([\d,]+\.?\d*)(?:\s+at\s+(.*?))?(?:\s*;|\s+on)', caseSensitive: false);
+  // MODIFIED Regex: Removed the starting anchor (^) to make it more flexible
+  final RegExp sampathDebitRegex = RegExp(r'([A-Z]{3})\s+([\d,]+\.?\d*)\s+debited from ac', caseSensitive: false);
+
+  final RegExp hsbcAuthRegex = RegExp(r'txn auth amt\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
   final RegExp hsbcCeftsRegex = RegExp(r'cefts trf of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
-  final RegExp hsbcOldAuthRegex = RegExp(r'trx for the auth value of\s*([a-z]{3})([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp hsbcOldAuthRegex = RegExp(r'trx for the auth value of\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
   final RegExp hsbcOldCeftsRegex = RegExp(r'your cefts transfer of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
 
   Future<int> syncExpensesFromSms(List<String> senderIds, ExpenseService expenseService) async {
@@ -49,32 +50,34 @@ class SmsService {
       final messageAddress = message.address?.toUpperCase() ?? '';
       double? originalAmount;
       String? transactionCurrencyCode;
+      String? description;
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
 
-      // HSBC Parser
       if (messageAddress == 'HSBC') {
-        match = hsbcTxnAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
+        match = hsbcAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);
           originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+          description = match.group(3)?.trim();
           type = TransactionType.general;
         } else {
           match = hsbcCeftsRegex.firstMatch(messageBody) ?? hsbcOldCeftsRegex.firstMatch(messageBody);
           if (match != null) {
             transactionCurrencyCode = match.group(1);
             originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            description = "CEFTS Transfer";
             type = TransactionType.bankTransfer;
           }
         }
       }
-      // Sampath Bank Parser
       else if (message.address == '8822') {
         match = sampathAuthPmtRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);
           originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+          description = match.group(3)?.trim();
           type = TransactionType.general;
         } else {
           match = sampathDebitRegex.firstMatch(messageBody);
@@ -82,23 +85,23 @@ class SmsService {
             transactionCurrencyCode = match.group(1);
             originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
 
-            int viaIndex = messageBody.indexOf(' via ');
-            int forIndex = messageBody.indexOf(' for ');
-            if (viaIndex == -1) viaIndex = 99999;
-            if (forIndex == -1) forIndex = 99999;
-
             if (messageBody.contains('via atm')) {
               type = TransactionType.atmWithdrawal;
-            } else if (forIndex < viaIndex) {
+              final descMatch = RegExp(r'via atm at (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
+              description = descMatch?.group(1)?.trim();
+            } else if (messageBody.contains('via')) {
+              type = TransactionType.general; // POS transaction
+              final descMatch = RegExp(r'via .*? at (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
+              description = descMatch?.group(1)?.trim();
+            } else if (messageBody.contains('for')) {
               type = TransactionType.bankTransfer;
-            } else {
-              type = TransactionType.general;
+              final descMatch = RegExp(r' for (.*?)(?: - |$)', caseSensitive: false).firstMatch(messageBody);
+              description = descMatch?.group(1)?.trim();
             }
           }
         }
       }
-      // General Parser
-      else {
+      else { // General Parser
         if (debitKeywords.any((keyword) => messageBody.contains(keyword))) {
           match = generalAmountRegex.firstMatch(messageBody);
           if (match != null) {
@@ -113,12 +116,7 @@ class SmsService {
       if (type == TransactionType.atmWithdrawal && !shouldSyncAtm) continue;
 
       if (originalAmount != null && originalAmount > 0 && transactionCurrencyCode != null) {
-        final double finalAmount = await CurrencyConversionService.convert(
-          originalAmount,
-          transactionCurrencyCode,
-          defaultCurrencyCode,
-        );
-
+        final double finalAmount = await CurrencyConversionService.convert(originalAmount, transactionCurrencyCode, defaultCurrencyCode);
         final timestamp = message.date != null ? DateTime.fromMillisecondsSinceEpoch(message.date!) : DateTime.now();
 
         bool alreadyExists = existingExpenses.any((exp) =>
@@ -128,7 +126,7 @@ class SmsService {
             exp.timestamp.day == timestamp.day);
 
         if (!alreadyExists) {
-          await expenseService.addExpense(Expense(amount: finalAmount, timestamp: timestamp, transactionType: type));
+          await expenseService.addExpense(Expense(amount: finalAmount, timestamp: timestamp, transactionType: type, description: description));
           newExpensesCount++;
         }
       }
