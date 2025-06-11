@@ -8,7 +8,7 @@
 PRODUCT_NAME = common_cents
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = lk.spacewa.common.cents.commonCents
+PRODUCT_BUNDLE_IDENTIFIER = lk.spacewa.rupiyal
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2025 lk.spacewa.common.cents. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2025 lk.spacewa.rupiyal. All rights reserved.

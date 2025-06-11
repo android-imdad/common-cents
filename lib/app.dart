@@ -22,7 +22,7 @@ class BudgetApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'Budget Tracker',
+      title: 'Rupiyal',
       theme: ThemeData(
         brightness: Brightness.dark,
         primarySwatch: Colors.teal,

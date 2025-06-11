@@ -1,4 +1,4 @@
-package lk.spacewa.common.cents.common_cents
+package lk.spacewa.rupiyal
 
 import io.flutter.embedding.android.FlutterActivity
 

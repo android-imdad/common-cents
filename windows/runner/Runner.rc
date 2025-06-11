@@ -89,11 +89,11 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "lk.spacewa.common.cents" "\0"
+            VALUE "CompanyName", "lk.spacewa.rupiyal" "\0"
             VALUE "FileDescription", "common_cents" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "common_cents" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2025 lk.spacewa.common.cents. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2025 lk.spacewa.rupiyal. All rights reserved." "\0"
             VALUE "OriginalFilename", "common_cents.exe" "\0"
             VALUE "ProductName", "common_cents" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

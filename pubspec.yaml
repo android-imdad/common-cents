@@ -30,15 +30,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  google_fonts: 6.1.0 # Or latest
-  intl: ^0.19.0       # Or latest
+  google_fonts: ^6.2.1 # Or latest
+  intl: ^0.20.2       # Or latest
   hive: ^2.2.3        # Or latest
   hive_flutter: ^1.1.0 # Or latest
   path_provider: ^2.1.3 # Or latest      # Check for the latest version
   animated_digit: ^3.2.3
   csv: ^6.0.0
   permission_handler: ^12.0.0+1
-  share_plus: ^9.0.0
+  share_plus: ^11.0.0
   another_telephony: ^0.4.1
   shared_preferences: ^2.5.3
   http: ^1.4.0
@@ -55,9 +55,10 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^2.0.0
+  flutter_lints: ^5.0.0
   hive_generator: ^2.0.1 # Or latest
   build_runner: ^2.4.9   # Or latest
+  change_app_package_name: ^1.5.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

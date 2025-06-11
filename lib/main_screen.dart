@@ -46,68 +46,35 @@ class _MainScreenState extends State<MainScreen> {
 
   // --- ADD EXPENSE DIALOG ---
   void _showAddExpenseDialog() {
-    final GlobalKey<AddExpenseDialogContentState> dialogContentKey = GlobalKey();
-
     showGeneralDialog(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 400),
       pageBuilder: (context, animation, secondaryAnimation) {
+        final GlobalKey<AddExpenseDialogContentState> dialogKey = GlobalKey();
         return AlertDialog(
+          scrollable: true,
           title: const Text('Add New Expense'),
           content: AddExpenseDialogContent(
-            key: dialogContentKey,
-            onAdd: (amount, dateTime) {
-              final newExpense = Expense(amount: amount, timestamp: dateTime);
-              _expenseService.addExpense(newExpense).then((_) {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Expense of ${amount.toStringAsFixed(2)} ${SettingsService.currentCurrencySymbol.value} added for ${DateFormat.yMd().format(dateTime)}.'),
-                    backgroundColor: Colors.green[700],
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }).catchError((error) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Error adding expense: $error'),
-                    backgroundColor: Colors.red[700],
-                    duration: const Duration(seconds: 3),
-                  ),
-                );
-              });
-            }, currencySymbol: SettingsService.currentCurrencySymbol.value,
+            key: dialogKey,
+            currencySymbol: SettingsService.currentCurrencySymbol.value,
+            onAdd: (amount, dateTime, type, description, bankName) {
+              _expenseService.addExpense(Expense(
+                amount: amount,
+                timestamp: dateTime,
+                transactionType: type,
+                description: description,
+                bankName: bankName,
+              ));
+              Navigator.of(context).pop();
+            },
           ),
-          actions: <Widget>[
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.grey),
-              child: const Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text('Add'),
-              onPressed: () {
-                dialogContentKey.currentState?.tryAddExpense();
-              },
-            ),
+          actions: [
+            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.of(context).pop()),
+            TextButton(child: const Text('Add'), onPressed: () => dialogKey.currentState?.tryAddExpense()),
           ],
         );
       },
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        // Use a scale transition for a "zoom" effect
-        return ScaleTransition(
-          scale: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutBack, // A nice "bouncy" curve
-            reverseCurve: Curves.easeOutBack,
-          ),
-          child: child,
-        );
-      },
+      transitionBuilder: (context, anim, _, child) => ScaleTransition(scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack), child: child),
     );
   }
 

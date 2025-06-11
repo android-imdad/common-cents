@@ -92,8 +92,9 @@
                                             <option name="values">
                                               <map>
                                                 <entry key="color" value="000000" />
-                                                <entry key="imagePath" value="$PROJECT_DIR$/../../../common_cents_transparent.png" />
-                                                <entry key="scalingPercent" value="67" />
+                                                <entry key="imagePath" value="$USER_HOME$/Downloads/Rupiyal_logo_high_res.png" />
+                                                <entry key="scalingPercent" value="91" />
+                                                <entry key="trimmed" value="true" />
                                               </map>
                                             </option>
                                           </PersistentState>
@@ -303,6 +304,11 @@
                 </map>
               </option>
             </PersistentState>
+          </value>
+        </entry>
+        <entry key="vectorWizard">
+          <value>
+            <PersistentState />
           </value>
         </entry>
       </map>
