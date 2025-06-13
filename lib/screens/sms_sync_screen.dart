@@ -14,10 +14,10 @@ class SmsSyncScreen extends StatefulWidget {
 class _SmsSyncScreenState extends State<SmsSyncScreen> {
   bool _isSyncing = false;
   final Map<String, String> _bankSenders = {
-    '+94767027625': 'HNB',
-    'HSBC': 'HSBC',
-    '8822': 'Sampath Bank',
-    // 'HDFCBK': 'HDFC Bank',
+    // '+94767027625': 'HNB',
+    // 'HSBC': 'HSBC',
+    // '8822': 'Sampath Bank',
+    '+94772128899': 'NTB',
     // 'ICICIB': 'ICICI Bank',
     // 'SBIBNK': 'SBI Bank',
     // 'AxisBk': 'Axis Bank',

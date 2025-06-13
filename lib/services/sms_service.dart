@@ -29,6 +29,11 @@ class SmsService {
   final RegExp hnbDebitOnlineRegex = RegExp(r'([a-z]{3})\s+([\d,]+\.?\d*)\s+debited.*?reason:(.*?)\/', caseSensitive: false);
   final RegExp hnbDebitChargeRegex = RegExp(r'a transaction for\s+([a-z]{3})\s+([\d,]+\.?\d*)\s+has been debit ed.*?remarks\s*:(.*?)\.bal:', caseSensitive: false);
 
+  final RegExp ntbCeftsRegex = RegExp(r'other bank transfer \(cefts\) was performed.*? for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp ntbPosRegex = RegExp(r'master dr card foreign pos was performed.*? for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp ntbPerformedRegex = RegExp(r'^(.*?) was performed.*? for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp ntbApprovedRegex = RegExp(r'a transaction of ([a-z]{3})\s+([\d,]+\.?\d*) was approved.*? at (.*?)\. current bal', caseSensitive: false);
+
   Future<int> syncExpensesFromSms(Map<String, String> senderMap, ExpenseService expenseService) async {
     if (Platform.isIOS) throw Exception("SMS sync is not supported on iOS.");
     if (await telephony.requestSmsPermissions != true) throw Exception("SMS permission not granted.");
@@ -61,8 +66,39 @@ class SmsService {
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
-
-      if (bankName == 'HNB') {
+      if (bankName == 'NTB') {
+        match = ntbCeftsRegex.firstMatch(messageBody);
+        if (match != null) {
+          transactionCurrencyCode = match.group(1);
+          originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+          description = "Other Bank Transfer (CEFTS)";
+          type = TransactionType.bankTransfer;
+        } else {
+          match = ntbPosRegex.firstMatch(messageBody);
+          if (match != null) {
+            transactionCurrencyCode = match.group(1);
+            originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            description = "Foreign POS Transaction";
+            type = TransactionType.general;
+          } else {
+            match = ntbPerformedRegex.firstMatch(messageBody);
+            if (match != null) {
+              description = match.group(1)?.trim();
+              transactionCurrencyCode = match.group(2);
+              originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
+              type = TransactionType.general;
+            } else {
+              match = ntbApprovedRegex.firstMatch(messageBody);
+              if (match != null) {
+                transactionCurrencyCode = match.group(1);
+                originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+                description = match.group(3)?.trim();
+                type = TransactionType.general;
+              }
+            }
+          }
+        }
+      } else if (bankName == 'HNB') {
         match = hnbAtmRegex.firstMatch(messageBody);
         if (match != null) {
           originalAmount = double.tryParse(match.group(1)?.replaceAll(',', '') ?? '0');
