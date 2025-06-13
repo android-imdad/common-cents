@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../expense.dart';
+import '../hive/expense.dart';
+import '../hive/transaction_type.dart';
 import '../services/expense_service.dart';
 
 class HistoryView extends StatelessWidget {
@@ -49,7 +50,6 @@ class HistoryView extends StatelessWidget {
 
         String bankText = expense.bankName != null ? ' • ${expense.bankName}' : '';
         String dateText = DateFormat.yMMMd().add_jm().format(expense.timestamp);
-
         switch(expense.transactionType) {
           case TransactionType.atmWithdrawal:
             leadingIcon = Icons.local_atm_outlined;

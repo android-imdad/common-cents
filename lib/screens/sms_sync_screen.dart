@@ -7,52 +7,39 @@ import '../services/sms_service.dart';
 class SmsSyncScreen extends StatefulWidget {
   final ExpenseService expenseService;
   final SmsService smsService;
-
-  const SmsSyncScreen({
-    super.key,
-    required this.expenseService,
-    required this.smsService,
-  });
-
+  const SmsSyncScreen({super.key, required this.expenseService, required this.smsService});
   @override
   State<SmsSyncScreen> createState() => _SmsSyncScreenState();
 }
-
 class _SmsSyncScreenState extends State<SmsSyncScreen> {
   bool _isSyncing = false;
-
-  // List of bank sender IDs. Can be expanded or made editable later.
-  final List<String> _bankSenderIds = [
-    '8822', // HDFC Bank
-    'HSBC'
-    // 'ICICIB', // ICICI Bank
-    // 'SBIBNK', // SBI Bank
-    // 'AxisBk', // Axis Bank
-    // Add more sender IDs here
-  ];
+  final Map<String, String> _bankSenders = {
+    '+94767027625': 'HNB',
+    'HSBC': 'HSBC',
+    '8822': 'Sampath Bank',
+    // 'HDFCBK': 'HDFC Bank',
+    // 'ICICIB': 'ICICI Bank',
+    // 'SBIBNK': 'SBI Bank',
+    // 'AxisBk': 'Axis Bank',
+  };
 
   Future<void> _runSmsSync() async {
     setState(() { _isSyncing = true; });
-
     try {
-      final newCount = await widget.smsService.syncExpensesFromSms(
-        _bankSenderIds,
-        widget.expenseService,
-      );
+      final newCount = await widget.smsService.syncExpensesFromSms(_bankSenders, widget.expenseService);
+      if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(newCount > 0 ? 'Successfully imported $newCount new expenses!' : 'No new expenses found to import.'),
         backgroundColor: Colors.green[700],
       ));
     } catch (e) {
-      debugPrint("Error during sync ${e.toString()}");
+      if(!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Error during sync: ${e.toString()}'),
         backgroundColor: Colors.red[700],
       ));
     } finally {
-      if (mounted) {
-        setState(() { _isSyncing = false; });
-      }
+      if (mounted) { setState(() { _isSyncing = false; }); }
     }
   }
 
@@ -74,15 +61,15 @@ class _SmsSyncScreenState extends State<SmsSyncScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'The app will scan for messages from the following senders. This list can be expanded in the future.',
+              'The app will scan for messages from the following senders.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 8.0,
               runSpacing: 8.0,
-              children: _bankSenderIds.map((id) => Chip(
-                label: Text(id),
+              children: _bankSenders.values.map((name) => Chip(
+                label: Text(name),
                 backgroundColor: Colors.grey[800],
               )).toList(),
             ),

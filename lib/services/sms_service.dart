@@ -4,7 +4,8 @@ import 'package:another_telephony/telephony.dart';
 import 'package:common_cents/services/settings_service.dart';
 import 'package:flutter/cupertino.dart';
 
-import '../expense.dart';
+import '../hive/expense.dart';
+import '../hive/transaction_type.dart';
 import 'currency_conversion_service.dart';
 import 'expense_service.dart';
 
@@ -22,12 +23,18 @@ class SmsService {
   final RegExp hsbcOldAuthRegex = RegExp(r'trx for the auth value of\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
   final RegExp hsbcOldCeftsRegex = RegExp(r'your cefts transfer of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
 
-  Future<int> syncExpensesFromSms(List<String> senderIds, ExpenseService expenseService) async {
+  final RegExp hnbAtmRegex = RegExp(r'hnb atm withdrawal e-receipt.*?amt\(approx\.\):\s*([\d,]+\.?\d*)\s*([a-z]{3}).*?location:\s*(.*?),\s*lka', caseSensitive: false, dotAll: true);
+  final RegExp hnbPurchaseRegex = RegExp(r'purchase,.*?location:(.*?),.*?amount\(approx\.\):([\d,]+\.?\d*)\s*([a-z]{3})', caseSensitive: false);
+  final RegExp hnbDebitReasonRegex = RegExp(r'([a-z]{3})\s+([\d,]+\.?\d*)\s+debited.*?reason:mb:(.*?)\s+bal:', caseSensitive: false);
+  final RegExp hnbDebitOnlineRegex = RegExp(r'([a-z]{3})\s+([\d,]+\.?\d*)\s+debited.*?reason:(.*?)\/', caseSensitive: false);
+  final RegExp hnbDebitChargeRegex = RegExp(r'a transaction for\s+([a-z]{3})\s+([\d,]+\.?\d*)\s+has been debit ed.*?remarks\s*:(.*?)\.bal:', caseSensitive: false);
+
+  Future<int> syncExpensesFromSms(Map<String, String> senderMap, ExpenseService expenseService) async {
     if (Platform.isIOS) throw Exception("SMS sync is not supported on iOS.");
     if (await telephony.requestSmsPermissions != true) throw Exception("SMS permission not granted.");
 
     List<SmsMessage> allMessages = [];
-    for (String senderId in senderIds) {
+    for (String senderId in senderMap.keys) {
       try {
         allMessages.addAll(await telephony.getInboxSms(
           columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
@@ -42,6 +49,7 @@ class SmsService {
     final shouldSyncTransfers = SettingsService.getSyncBankTransfers();
     final shouldSyncAtm = SettingsService.getSyncAtmWithdrawals();
     final defaultCurrencyCode = SettingsService.getCurrencyCode();
+    debugPrint("SMS in progress. allMessages ${allMessages.length}.");
 
     for (var message in allMessages) {
       final messageBody = message.body?.toLowerCase() ?? '';
@@ -49,13 +57,53 @@ class SmsService {
       double? originalAmount;
       String? transactionCurrencyCode;
       String? description;
-      String? bankName;
+      String? bankName = senderMap[message.address];
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
 
-      if (messageAddress == 'HSBC') {
-        bankName = 'HSBC';
+      if (bankName == 'HNB') {
+        match = hnbAtmRegex.firstMatch(messageBody);
+        if (match != null) {
+          originalAmount = double.tryParse(match.group(1)?.replaceAll(',', '') ?? '0');
+          transactionCurrencyCode = match.group(2);
+          description = match.group(3)?.trim();
+          type = TransactionType.atmWithdrawal;
+        } else {
+          match = hnbDebitReasonRegex.firstMatch(messageBody);
+          if (match != null) {
+            transactionCurrencyCode = match.group(1);
+            originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            description = match.group(3)?.trim();
+            type = TransactionType.bankTransfer;
+          } else {
+            match = hnbPurchaseRegex.firstMatch(messageBody);
+            if (match != null) {
+              description = match.group(1)?.trim();
+              originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+              transactionCurrencyCode = match.group(3);
+              type = TransactionType.general;
+            } else {
+              match = hnbDebitOnlineRegex.firstMatch(messageBody);
+              if (match != null) {
+                transactionCurrencyCode = match.group(1);
+                originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+                description = match.group(3)?.trim();
+                type = TransactionType.general;
+              } else {
+                match = hnbDebitChargeRegex.firstMatch(messageBody);
+                if (match != null) {
+                  transactionCurrencyCode = match.group(1);
+                  originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+                  description = match.group(3)?.trim();
+                  type = TransactionType.general;
+                }
+              }
+            }
+          }
+        }
+      }
+      else if (bankName == 'HSBC') {
         match = hsbcAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);
@@ -72,8 +120,7 @@ class SmsService {
           }
         }
       }
-      else if (message.address == '8822') {
-        bankName = 'Sampath Bank';
+      else if (bankName == 'Sampath Bank') {
         match = sampathAuthPmtRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);

@@ -5,7 +5,7 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../expense.dart';
+import '../hive/expense.dart';
 
 class ExpenseService {
   static const String _boxName = 'expensesBox';

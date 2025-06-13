@@ -8,7 +8,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'expense.dart';
+import 'hive/expense.dart';
 import 'services/expense_service.dart';
 
 class MainScreen extends StatefulWidget {

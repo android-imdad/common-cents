@@ -1,22 +1,10 @@
 // --- Hive Type Adapter Generation ---
 // This line tells the build_runner where to generate the adapter code.
 // Make sure to run `flutter pub run build_runner build --delete-conflicting-outputs`
+import 'package:common_cents/hive/transaction_type.dart';
 import 'package:hive/hive.dart';
 
 part 'expense.g.dart'; // Generated file
-
-
-@HiveType(typeId: 2)
-enum TransactionType {
-  @HiveField(0)
-  general,
-
-  @HiveField(1)
-  bankTransfer,
-
-  @HiveField(2)
-  atmWithdrawal,
-}
 
 // --- Data Model ---
 @HiveType(typeId: 0)

@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../expense.dart';
+import '../hive/expense.dart';
 import '../services/expense_service.dart';
 import '../widgets/spending_card.dart';
 

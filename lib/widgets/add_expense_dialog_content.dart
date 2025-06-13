@@ -2,7 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../expense.dart';
+import '../hive/expense.dart';
+import '../hive/transaction_type.dart';
 
 class AddExpenseDialogContent extends StatefulWidget {
   final Function(double, DateTime, TransactionType, String?, String?) onAdd;
