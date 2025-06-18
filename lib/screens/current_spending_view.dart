@@ -1,4 +1,5 @@
 import 'package:animated_digit/animated_digit.dart';
+import 'package:common_cents/screens/analytics_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -52,37 +53,37 @@ class CurrentSpendingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint("Building CurrentSpendingView with ${expenses.length} expenses.");
-    return SingleChildScrollView(
-      // Apply padding to the scrollable content area
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        // Ensure the column itself aligns items to the start (left)
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          _buildSpendingItem(
-            context,
-            'Daily Spend',
-            expenseService.getDailySpend(expenses),
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Center( // Center the scrollable content
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: <Widget>[
+              _buildSpendingItem(context, 'Daily Spend', expenseService.getDailySpend(expenses)),
+              _buildSpendingItem(context, 'Weekly Spend', expenseService.getWeeklySpend(expenses)),
+              _buildSpendingItem(context, 'Monthly Spend', expenseService.getMonthlySpend(expenses)),
+              _buildSpendingItem(context, 'Yearly Spend', expenseService.getYearlySpend(expenses)),
+            ],
           ),
-          _buildSpendingItem(
-            context,
-            'Weekly Spend',
-            expenseService.getWeeklySpend(expenses),
-          ),
-          _buildSpendingItem(
-            context,
-            'Monthly Spend',
-            expenseService.getMonthlySpend(expenses),
-          ),
-          _buildSpendingItem(
-            context,
-            'Yearly Spend',
-            expenseService.getYearlySpend(expenses),
-          ),
-          // Add some padding at the bottom if needed (e.g., to clear FAB)
-          const SizedBox(height: 80),
-        ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (context) => AnalyticsPage(
+              expenses: expenses,
+              currencySymbol: currencySymbol,
+            ),
+          ));
+        },
+        heroTag: 'analytics_fab',
+        label: const Text('Analytics'),
+        icon: const Icon(Icons.analytics_outlined),
+        backgroundColor: Colors.grey[850],
+        foregroundColor: Colors.white,
       ),
     );
   }

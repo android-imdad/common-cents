@@ -139,6 +139,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       // --- INTEGRATED FAB AND BOTTOM APP BAR ---
       floatingActionButton: FloatingActionButton(
+        heroTag: "add_exp_fab",
         onPressed: _showAddExpenseDialog,
         tooltip: 'Add Expense',
         shape: const CircleBorder(),

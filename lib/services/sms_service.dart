@@ -34,12 +34,20 @@ class SmsService {
   final RegExp ntbPerformedRegex = RegExp(r'^(.*?) was performed.*? for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
   final RegExp ntbApprovedRegex = RegExp(r'a transaction of ([a-z]{3})\s+([\d,]+\.?\d*) was approved.*? at (.*?)\. current bal', caseSensitive: false);
 
+  final RegExp bocTransferRegex = RegExp(r'(online transfer debit|transfer debit|transfer order debit)\s+(?:(rs|lkr|aud)\s+)?([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp bocPosAtmRegex = RegExp(r'(pos\/atm transaction|atm withdrawal) rs\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp bocApprovedRegex = RegExp(r'a transaction of ([a-z]{3})\s+([\d,]+\.?\d*) was approved.*? at (.*?)\. current bal', caseSensitive: false);
+
+  final RegExp commBankPurchaseRegex = RegExp(r'purchase at (.*?) for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+
   Future<int> syncExpensesFromSms(Map<String, String> senderMap, ExpenseService expenseService) async {
     if (Platform.isIOS) throw Exception("SMS sync is not supported on iOS.");
     if (await telephony.requestSmsPermissions != true) throw Exception("SMS permission not granted.");
 
     List<SmsMessage> allMessages = [];
-    for (String senderId in senderMap.keys) {
+    List<String> enabledSenderIds = senderMap.keys.where((id) => SettingsService.isBankEnabled(id)).toList();
+
+    for (String senderId in enabledSenderIds) {
       try {
         allMessages.addAll(await telephony.getInboxSms(
           columns: [SmsColumn.ADDRESS, SmsColumn.BODY, SmsColumn.DATE],
@@ -66,7 +74,39 @@ class SmsService {
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
-      if (bankName == 'NTB') {
+      if (bankName == 'Commercial Bank') {
+        match = commBankPurchaseRegex.firstMatch(messageBody);
+        if (match != null) {
+          description = match.group(1)?.trim();
+          transactionCurrencyCode = match.group(2);
+          originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
+          type = TransactionType.general;
+        }
+      } else if (bankName == 'BOC') {
+        match = bocTransferRegex.firstMatch(messageBody);
+        if (match != null) {
+          description = match.group(1)?.trim();
+          transactionCurrencyCode = match.group(2) ?? 'LKR';
+          originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
+          type = TransactionType.bankTransfer;
+        } else {
+          match = bocPosAtmRegex.firstMatch(messageBody);
+          if (match != null) {
+            description = match.group(1)?.trim();
+            originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            transactionCurrencyCode = 'LKR';
+            type = messageBody.contains('atm withdrawal') ? TransactionType.atmWithdrawal : TransactionType.general;
+          } else {
+            match = bocApprovedRegex.firstMatch(messageBody);
+            if (match != null) {
+              transactionCurrencyCode = match.group(1);
+              originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+              description = match.group(3)?.trim();
+              type = TransactionType.general;
+            }
+          }
+        }
+      } else if (bankName == 'NTB') {
         match = ntbCeftsRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);

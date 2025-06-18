@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/expense_service.dart';
 import '../services/settings_service.dart';
@@ -43,8 +44,16 @@ class SettingsView extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No expenses to export.')));
       return;
     }
-    List<List<dynamic>> rows = [['Amount (${SettingsService.getCurrencyCode()})', 'Timestamp', 'Type']];
-    for (var expense in expenses) { rows.add([expense.amount, expense.timestamp.toIso8601String(), expense.transactionType.toString().split('.').last]); }
+    List<List<dynamic>> rows = [['Amount (${SettingsService.getCurrencyCode()})', 'Timestamp', 'Type', 'Description', 'Bank Name']];
+    for (var expense in expenses) {
+      rows.add([
+        expense.amount,
+        expense.timestamp.toIso8601String(),
+        expense.transactionType.toString().split('.').last,
+        expense.description ?? '',
+        expense.bankName ?? ''
+      ]);
+    }
     String csv = const ListToCsvConverter().convert(rows);
     try {
       final tempDir = await getTemporaryDirectory();
@@ -73,6 +82,20 @@ class SettingsView extends StatelessWidget {
         ],
       );
     });
+  }
+
+  void _sendEmail() async {
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: 'rupiyal.app@gmail.com',
+      query: 'subject=Bank Support / Bug Report',
+    );
+
+    if (await canLaunchUrl(emailLaunchUri)) {
+      await launchUrl(emailLaunchUri);
+    } else {
+      debugPrint("Could not launch email client.");
+    }
   }
 
   @override
@@ -131,6 +154,13 @@ class SettingsView extends StatelessWidget {
                   leading: const Icon(Icons.upload_file_outlined, color: Colors.white70),
                   title: const Text('Export Data'),
                   onTap: () => _exportData(context),
+                ),
+                const Divider(color: Colors.white24),
+                ListTile(
+                  leading: const Icon(Icons.help_outline, color: Colors.white70),
+                  title: const Text('Support & Feedback'),
+                  subtitle: const Text('Request new bank support or report a bug. Please attach sms you need to parse.'),
+                  onTap: _sendEmail,
                 ),
                 const Divider(color: Colors.white24),
                 ListTile(
