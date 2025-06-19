@@ -1,17 +1,23 @@
+import 'package:background_fetch/background_fetch.dart';
 import 'package:common_cents/screens/average_spending_view.dart';
 import 'package:common_cents/screens/current_spending_view.dart';
 import 'package:common_cents/screens/history_view.dart';
 import 'package:common_cents/screens/settings_view.dart';
 import 'package:common_cents/services/settings_service.dart';
+import 'package:common_cents/services/sms_service.dart';
 import 'package:common_cents/widgets/add_expense_dialog_content.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import 'constants.dart';
 import 'hive/expense.dart';
+import 'logger.dart';
 import 'services/expense_service.dart';
 
 class MainScreen extends StatefulWidget {
+  static const String TAG = "MainScreen";
+
   const MainScreen({super.key});
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -26,15 +32,11 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _expensesNotifier = _expenseService.expensesNotifier;
-    _expensesNotifier.addListener(_handleNotifierChange);
-  }
-
-  void _handleNotifierChange(){
+    initPlatformState();
   }
 
   @override
   void dispose() {
-    _expensesNotifier.removeListener(_handleNotifierChange);
     super.dispose();
   }
 
@@ -163,4 +165,47 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+
+  Future<void> initPlatformState() async {
+    // Configure BackgroundFetch.
+    int status = await BackgroundFetch.configure(BackgroundFetchConfig(
+        minimumFetchInterval: 15,
+        stopOnTerminate: false,
+        enableHeadless: true,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresStorageNotLow: false,
+        requiresDeviceIdle: false,
+        requiredNetworkType: NetworkType.NONE
+    ), (String taskId) async {  // <-- Event handler
+      Logger.info(tag: "BackgroundFetch", text: "Event received $taskId");
+      // This is the FG event. The headless task is separate.
+      // Could trigger a manual sync here if needed.
+      BackgroundFetch.finish(taskId);
+    }, (String taskId) async {  // <-- Task timeout handler
+      Logger.info(tag: "BackgroundFetch", text: "TASK TIMEOUT: $taskId");
+
+      BackgroundFetch.finish(taskId);
+    });
+    Logger.info(tag: "BackgroundFetch", text: "configure success: $status");
+
+    // If the user has auto-sync enabled, start the background fetch.
+    if (SettingsService.getAutoSmsSync()) {
+      BackgroundFetch.start();
+      _syncOnStartup();
+    }
+  }
+
+
+  Future<void> _syncOnStartup() async {
+    Logger.info(tag: MainScreen.TAG, text: "_syncOnStartup Running auto-sync on startup...");
+    try {
+      final smsService = SmsService();
+      int newCount = await smsService.syncExpensesFromSms(Constants.banksMap, _expenseService);
+      Logger.info(tag: MainScreen.TAG, text: "_syncOnStartup Startup SMS sync complete. Added $newCount new expenses.");
+    } catch (e) {
+      Logger.error(tag: MainScreen.TAG, text: "_syncOnStartup Startup SMS sync failed: $e");
+    }
+  }
+
 }

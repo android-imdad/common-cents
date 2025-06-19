@@ -1,6 +1,7 @@
 // --- Settings View --- (NEW WIDGET)
 import 'dart:io';
 
+import 'package:common_cents/logger.dart';
 import 'package:common_cents/screens/sms_sync_screen.dart';
 import 'package:csv/csv.dart';
 import 'package:flutter/cupertino.dart';
@@ -18,6 +19,9 @@ import '../services/sms_service.dart';
 class SettingsView extends StatelessWidget {
   final ExpenseService expenseService;
   const SettingsView({super.key, required this.expenseService});
+
+  static const String TAG = "SettingsView";
+
 
   void _showCurrencyPicker(BuildContext context) {
     showDialog(context: context, builder: (context) {
@@ -61,7 +65,7 @@ class SettingsView extends StatelessWidget {
       final file = File(path);
       await file.writeAsString(csv);
       await Share.shareXFiles([XFile(path, mimeType: 'text/csv')], text: 'Here is your expense data.');
-    } catch (e) { debugPrint("Error exporting data: $e"); }
+    } catch (e) { Logger.error(tag: TAG,text: "Error exporting data: $e"); }
   }
 
   void _confirmResetData(BuildContext context) {
@@ -94,7 +98,7 @@ class SettingsView extends StatelessWidget {
     if (await canLaunchUrl(emailLaunchUri)) {
       await launchUrl(emailLaunchUri);
     } else {
-      debugPrint("Could not launch email client.");
+      Logger.info(tag: TAG,text: "Could not launch email client.");
     }
   }
 
@@ -110,7 +114,7 @@ class SettingsView extends StatelessWidget {
           animation: Listenable.merge([
             SettingsService.currentCurrencySymbol,
             SettingsService.syncBankTransfers,
-            SettingsService.syncAtmWithdrawals
+            SettingsService.syncAtmWithdrawals,
           ]),
           builder: (context, _) {
             final currentCode = SettingsService.getCurrencyCode();
@@ -145,8 +149,8 @@ class SettingsView extends StatelessWidget {
                 const Divider(color: Colors.white24),
                 ListTile(
                   leading: const Icon(Icons.sms_outlined, color: Colors.white70),
-                  title: const Text('Manual SMS Sync'),
-                  subtitle: const Text('Run the SMS import process now.'),
+                  title: const Text('SMS Sync Settings'),
+                  subtitle: const Text('Manage manual and auto-sync options.'),
                   onTap: () => _goToSmsSync(context),
                 ),
                 const Divider(color: Colors.white24),

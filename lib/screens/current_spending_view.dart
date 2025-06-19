@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../hive/expense.dart';
+import '../logger.dart';
 import '../services/expense_service.dart';
 
 class CurrentSpendingView extends StatelessWidget {
+  static const String TAG = "CurrentSpendingView";
+
+
   final List<Expense> expenses;
   final ExpenseService expenseService;
   final String currencySymbol;
@@ -52,7 +56,7 @@ class CurrentSpendingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("Building CurrentSpendingView with ${expenses.length} expenses.");
+    Logger.info(tag: TAG, text: "Building CurrentSpendingView with ${expenses.length} expenses.");
     return Scaffold(
       backgroundColor: Colors.black,
       body: Center( // Center the scrollable content

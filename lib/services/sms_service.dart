@@ -6,10 +6,13 @@ import 'package:flutter/cupertino.dart';
 
 import '../hive/expense.dart';
 import '../hive/transaction_type.dart';
+import '../logger.dart';
 import 'currency_conversion_service.dart';
 import 'expense_service.dart';
 
 class SmsService {
+  static const String TAG = "SmsService";
+
   final Telephony telephony = Telephony.instance;
 
   final List<String> debitKeywords = ['debited', 'spent', 'purchase of', 'payment of', 'sent'];
@@ -38,7 +41,7 @@ class SmsService {
   final RegExp bocPosAtmRegex = RegExp(r'(pos\/atm transaction|atm withdrawal) rs\s+([\d,]+\.?\d*)', caseSensitive: false);
   final RegExp bocApprovedRegex = RegExp(r'a transaction of ([a-z]{3})\s+([\d,]+\.?\d*) was approved.*? at (.*?)\. current bal', caseSensitive: false);
 
-  final RegExp commBankPurchaseRegex = RegExp(r'purchase at (.*?) for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp commBankPurchaseRegex = RegExp(r'purchase at (.*?) for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false, dotAll: true);
 
   Future<int> syncExpensesFromSms(Map<String, String> senderMap, ExpenseService expenseService) async {
     if (Platform.isIOS) throw Exception("SMS sync is not supported on iOS.");
@@ -54,7 +57,9 @@ class SmsService {
           filter: SmsFilter.where(SmsColumn.ADDRESS).equals(senderId),
           sortOrder: [OrderBy(SmsColumn.DATE, sort: Sort.DESC)],
         ));
-      } catch(e) { debugPrint("Could not fetch SMS for sender $senderId. Error: $e"); }
+      } catch(e) {
+        Logger.error(tag: TAG, text: "Could not fetch SMS for sender $senderId. Error: $e");
+      }
     }
 
     int newExpensesCount = 0;
@@ -62,7 +67,7 @@ class SmsService {
     final shouldSyncTransfers = SettingsService.getSyncBankTransfers();
     final shouldSyncAtm = SettingsService.getSyncAtmWithdrawals();
     final defaultCurrencyCode = SettingsService.getCurrencyCode();
-    debugPrint("SMS in progress. allMessages ${allMessages.length}.");
+    Logger.info(tag: TAG, text: "SMS in progress. allMessages ${allMessages.length}.");
 
     for (var message in allMessages) {
       final messageBody = message.body?.toLowerCase() ?? '';
@@ -77,7 +82,7 @@ class SmsService {
       if (bankName == 'Commercial Bank') {
         match = commBankPurchaseRegex.firstMatch(messageBody);
         if (match != null) {
-          description = match.group(1)?.trim();
+          description = match.group(1)?.replaceAll(RegExp(r'\s+'), ' ').trim();
           transactionCurrencyCode = match.group(2);
           originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
           type = TransactionType.general;
@@ -247,7 +252,7 @@ class SmsService {
         }
       }
     }
-    debugPrint("SMS Sync complete. Added $newExpensesCount new expenses.");
+    Logger.info(tag: TAG, text: "SMS Sync complete. Added $newExpensesCount new expenses.");
     return newExpensesCount;
   }
 }

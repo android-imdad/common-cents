@@ -3,8 +3,11 @@ import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
+import '../logger.dart';
+
 class CurrencyConversionService {
   static Map<String, dynamic>? _ratesCache;
+  static const String TAG = "CurrencyConversionService";
 
   static Future<void> _fetchAndCacheRates() async {
     if (_ratesCache != null) return;
@@ -14,7 +17,9 @@ class CurrencyConversionService {
         final data = json.decode(response.body);
         if (data['result'] == 'success') _ratesCache = data['rates'];
       }
-    } catch (e) { debugPrint("Error fetching currency rates: $e"); }
+    } catch (e) {
+      Logger.error(tag: TAG, text: "Error fetching currency rates: $e");
+    }
   }
 
   static const Map<String, double> _fallbackRates = { 'USD': 1.0, 'LKR': 300.0, 'INR': 83.0, 'EUR': 0.92, 'GBP': 0.79, 'AUD': 0.66 };
