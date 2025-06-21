@@ -25,6 +25,9 @@ class SmsService {
   final RegExp hsbcCeftsRegex = RegExp(r'cefts trf of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
   final RegExp hsbcOldAuthRegex = RegExp(r'trx for the auth value of\s*([a-z]{3})([\d,]+\.?\d*).*?(?: at (.*?))? on', caseSensitive: false);
   final RegExp hsbcOldCeftsRegex = RegExp(r'your cefts transfer of\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false);
+  final RegExp hsbcCashWithdrawalRegex = RegExp(r'cash withdrawal from.*? ([a-z]{3})\s+([\d,]+(?:-\.?)?)', caseSensitive: false);
+  final RegExp hsbcDebitCardRegex = RegExp(r'debit card transaction from.*? ([a-z]{3})\s+([\d,]+(?:-\.?)?)', caseSensitive: false);
+  final RegExp hsbcPaymentRegex = RegExp(r'payment from.*? ([a-z]{3})\s+([\d,]+(?:-\.?)?)', caseSensitive: false);
 
   final RegExp hnbAtmRegex = RegExp(r'hnb atm withdrawal e-receipt.*?amt\(approx\.\):\s*([\d,]+\.?\d*)\s*([a-z]{3}).*?location:\s*(.*?),\s*lka', caseSensitive: false, dotAll: true);
   final RegExp hnbPurchaseRegex = RegExp(r'purchase,.*?location:(.*?),.*?amount\(approx\.\):([\d,]+\.?\d*)\s*([a-z]{3})', caseSensitive: false);
@@ -41,7 +44,13 @@ class SmsService {
   final RegExp bocPosAtmRegex = RegExp(r'(pos\/atm transaction|atm withdrawal) rs\s+([\d,]+\.?\d*)', caseSensitive: false);
   final RegExp bocApprovedRegex = RegExp(r'a transaction of ([a-z]{3})\s+([\d,]+\.?\d*) was approved.*? at (.*?)\. current bal', caseSensitive: false);
 
-  final RegExp commBankPurchaseRegex = RegExp(r'purchase at (.*?) for ([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false, dotAll: true);
+  final RegExp commBankPurchaseRegex = RegExp(r'purchase at (.*?) for\s+([a-z]{3})\s+([\d,]+\.?\d*)', caseSensitive: false, dotAll: true);
+  final RegExp commBankDebitForRegex = RegExp(r'debit for rs\.\s*([\d,]+\.?\d*).*? at (.*)', caseSensitive: false, dotAll: true);
+  final RegExp commBankWithdrawalAtRegex = RegExp(r'withdrawal at (.*?) for lkr\s+([\d,]+\.?\d*)', caseSensitive: false, dotAll: true);
+
+  final RegExp peoplesBankDebitRegex = RegExp(r'debited by (?:rs\.\s*|rs\s*)?([\d,]+\.?\d*)\s*\((.*?)\s*@', caseSensitive: false);
+  final RegExp peoplesBankTransferRegex = RegExp(r'(fund transfer|billpay) of (lkr|rs)\s*([\d,]+\.?\d*) to (.*?)(?: on |$)', caseSensitive: false);
+  final RegExp peoplesBankLankapayRegex = RegExp(r'lankapay - online transfer of (lkr|rs)\s*([\d,]+\.?\d*) to a\/c', caseSensitive: false);
 
   Future<int> syncExpensesFromSms(Map<String, String> senderMap, ExpenseService expenseService) async {
     if (Platform.isIOS) throw Exception("SMS sync is not supported on iOS.");
@@ -79,13 +88,54 @@ class SmsService {
       TransactionType type = TransactionType.general;
 
       RegExpMatch? match;
-      if (bankName == 'Commercial Bank') {
-        match = commBankPurchaseRegex.firstMatch(messageBody);
+
+      if (bankName == "People's Bank") {
+        match = peoplesBankDebitRegex.firstMatch(messageBody);
+        if(match != null) {
+          originalAmount = double.tryParse(match.group(1)?.replaceAll(',', '') ?? '0');
+          description = match.group(2)?.trim();
+          transactionCurrencyCode = 'LKR'; // Assumes LKR for this format
+          type = description?.toLowerCase() == 'atm' ? TransactionType.atmWithdrawal : TransactionType.general;
+        } else {
+          match = peoplesBankTransferRegex.firstMatch(messageBody);
+          if (match != null) {
+            description = "Transfer to ${match.group(4)?.trim()}";
+            originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
+            transactionCurrencyCode = match.group(2) ?? 'LKR';
+            type = TransactionType.bankTransfer;
+          } else {
+            match = peoplesBankLankapayRegex.firstMatch(messageBody);
+            if (match != null) {
+              description = "LANKAPAY Online Transfer";
+              transactionCurrencyCode = match.group(1) ?? 'LKR';
+              originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+              type = TransactionType.bankTransfer;
+            }
+          }
+        }
+      } else if (bankName == 'Commercial Bank') {
+        match = commBankDebitForRegex.firstMatch(messageBody);
         if (match != null) {
-          description = match.group(1)?.replaceAll(RegExp(r'\s+'), ' ').trim();
-          transactionCurrencyCode = match.group(2);
-          originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
-          type = TransactionType.general;
+          originalAmount = double.tryParse(match.group(1)?.replaceAll(',', '') ?? '0');
+          description = match.group(2)?.trim().split(RegExp(r'\s+on\s+'))[0];
+          transactionCurrencyCode = 'LKR';
+          type = TransactionType.atmWithdrawal;
+        } else {
+          match = commBankWithdrawalAtRegex.firstMatch(messageBody);
+          if (match != null) {
+            description = match.group(1)?.trim();
+            originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+            transactionCurrencyCode = 'LKR';
+            type = TransactionType.atmWithdrawal;
+          } else {
+            match = commBankPurchaseRegex.firstMatch(messageBody);
+            if (match != null) {
+              description = match.group(1)?.trim().replaceAll(RegExp(r'\s+'), ' ');
+              transactionCurrencyCode = match.group(2);
+              originalAmount = double.tryParse(match.group(3)?.replaceAll(',', '') ?? '0');
+              type = TransactionType.general;
+            }
+          }
         }
       } else if (bankName == 'BOC') {
         match = bocTransferRegex.firstMatch(messageBody);
@@ -185,23 +235,47 @@ class SmsService {
         }
       }
       else if (bankName == 'HSBC') {
-        match = hsbcAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
-        if (match != null) {
+        bankName = 'HSBC';
+        match = hsbcCashWithdrawalRegex.firstMatch(messageBody);
+        if(match != null) {
           transactionCurrencyCode = match.group(1);
-          originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
-          description = match.group(3)?.trim();
-          type = TransactionType.general;
+          originalAmount = double.tryParse(match.group(2)?.replaceAll(RegExp(r'[,-]'), '') ?? '0');
+          description = 'Cash Withdrawal';
+          type = TransactionType.atmWithdrawal;
         } else {
-          match = hsbcCeftsRegex.firstMatch(messageBody) ?? hsbcOldCeftsRegex.firstMatch(messageBody);
+          match = hsbcPaymentRegex.firstMatch(messageBody) ?? hsbcOldCeftsRegex.firstMatch(messageBody);
           if (match != null) {
             transactionCurrencyCode = match.group(1);
-            originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
-            description = "CEFTS Transfer";
+            originalAmount = double.tryParse(match.group(2)?.replaceAll(RegExp(r'[,-]'), '') ?? '0');
+            description = "Payment/Transfer";
             type = TransactionType.bankTransfer;
+          } else {
+            match = hsbcDebitCardRegex.firstMatch(messageBody);
+            if (match != null) {
+              transactionCurrencyCode = match.group(1);
+              originalAmount = double.tryParse(match.group(2)?.replaceAll(RegExp(r'[,-]'), '') ?? '0');
+              description = 'Debit Card Transaction';
+              type = TransactionType.general;
+            } else {
+              match = hsbcAuthRegex.firstMatch(messageBody) ?? hsbcOldAuthRegex.firstMatch(messageBody);
+              if (match != null) {
+                transactionCurrencyCode = match.group(1);
+                originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+                description = match.group(3)?.trim();
+                type = TransactionType.general;
+              } else {
+                match = hsbcCeftsRegex.firstMatch(messageBody);
+                if (match != null) {
+                  transactionCurrencyCode = match.group(1);
+                  originalAmount = double.tryParse(match.group(2)?.replaceAll(',', '') ?? '0');
+                  description = "CEFTS Transfer";
+                  type = TransactionType.bankTransfer;
+                }
+              }
+            }
           }
         }
-      }
-      else if (bankName == 'Sampath Bank') {
+      } else if (bankName == 'Sampath Bank') {
         match = sampathAuthPmtRegex.firstMatch(messageBody);
         if (match != null) {
           transactionCurrencyCode = match.group(1);

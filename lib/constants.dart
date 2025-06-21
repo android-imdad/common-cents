@@ -6,6 +6,7 @@ class Constants{
     'BOC': 'BOC',
     'COMBANK':'Commercial Bank',
     'NationsSMS': 'NTB',
+    "PeoplesBank": "People's Bank",
     // 'SBIBNK': 'SBI Bank',
     // 'AxisBk': 'Axis Bank',
   };
