@@ -172,8 +172,7 @@ class ExpenseService {
   // Helper to check if a date is within the last 30 days
   bool _isThisMonth(DateTime date) {
     final now = DateTime.now();
-    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-    return date.isAfter(thirtyDaysAgo) && date.isBefore(now);
+    return date.year == now.year && date.month == now.month;
   }
 
   // Helper to check if a date is within the current year
